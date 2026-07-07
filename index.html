@@ -1,85 +1,873 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Version Launcher</title>
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>QR-anchored OMR — Template Builder + Runner (OpenCV.js)</title>
 <style>
-body{
-    font-family:Arial,sans-serif;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    margin:0;
-    background:#0d1117;
-}
-.card{
-    background:white;
-    padding:30px;
-    border-radius:15px;
-    width:320px;
-    text-align:center;
-    box-shadow:0 10px 30px rgba(0,0,0,.3);
-}
-input{
-    width:100%;
-    padding:12px;
-    font-size:18px;
-    text-align:center;
-    margin:20px 0;
-    border:2px solid #ccc;
-    border-radius:8px;
-    box-sizing:border-box;
-}
-button{
-    width:100%;
-    padding:12px;
-    font-size:18px;
-    background:#0969da;
-    color:white;
-    border:none;
-    border-radius:8px;
-    cursor:pointer;
-}
-button:hover{
-    background:#0550ae;
-}
+  :root { --bg:#0b0e14; --card:#131721; --text:#e6edf3; --muted:#9aa4b2; --accent:#5eead4; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;background:var(--bg);color:var(--text)}
+  header{padding:16px 20px;border-bottom:1px solid #222733;background:#0f1320;position:sticky;top:0;z-index:10}
+  h1{font-size:20px;margin:0}
+  main{padding:14px;display:grid;gap:14px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .tabbtn{background:#11182a;color:#cfe6ff;border:1px solid #28324a;padding:8px 12px;border-radius:10px;cursor:pointer}
+  .tabbtn.active{background:linear-gradient(180deg,#3ee8d1,#2ec4b6);color:#0b0e14;border:0}
+  .card{background:var(--card);border:1px solid #222733;border-radius:16px;box-shadow:0 4px 20px #0004}
+  .pad{padding:14px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input[type="file"],input[type="number"],input[type="text"],select,textarea{width:100%;background:#0f1320;color:#e6edf3;border:1px solid #2a3142;border-radius:10px;padding:8px 10px}
+  textarea{min-height:160px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  button{background:linear-gradient(180deg,#3eead1,#2ec4b6);color:#0b0e14;border:0;border-radius:12px;padding:10px 12px;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .mutebtn{background:#1a2235;color:#d9e1ee;border:1px solid #2a3142}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .thumb{position:relative}
+  .thumb canvas{width:100%;height:auto;border-radius:12px;border:1px solid #263047;background:#0f1320}
+  .thumb .tag{position:absolute;left:8px;top:8px;background:#112236;color:#9bd6ff;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid #1f3d62}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid #273049;padding:8px;text-align:left}
+  .ok{color:#7ef1c0} .no{color:#ff9aa2}
+  .small{font-size:12px;color:var(--muted)}
+  .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{background:#0f1320;border:1px solid #2a3142;border-radius:999px;padding:4px 10px;font-size:12px;color:#9aa4b2}
+  .canvaswrap{position:relative}
+  #tplOverlay{position:absolute;left:0;top:0;pointer-events:auto}
+  #templateOverlay{position:absolute;left:0;top:0;pointer-events:none;opacity:.2}
+  .legend{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .legend span{display:inline-flex;gap:6px;align-items:center}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:999px}
+  /* Modal */
+  #bubbleManager{display:none;position:fixed;top:10%;left:50%;transform:translateX(-50%);background:#1e2638;border:1px solid #2a3142;border-radius:12px;padding:12px;width:520px;z-index:9999}
+  #bubbleManager h3{margin:4px 0 10px}
+  #bubbleTable thead tr{background:#2a3142}
+  #bubbleTable tr{cursor:pointer}
+  #bubbleTable tr.selected{background:#3a4a62}
 </style>
-
 </head>
 <body>
+<header><h1>QR-anchored OMR — Template Builder + Runner (OpenCV.js)</h1></header>
+<main>
+  <div class="tabs">
+    <button class="tabbtn active" data-tab="builder">1) Template Builder</button>
+    <button class="tabbtn" data-tab="runner">2) OMR Runner</button>
+  </div>
 
-<div class="card">
-<h2>Select Version</h2>
+  <!-- ====== TEMPLATE BUILDER ====== -->
+  <section id="builder" class="card pad">
+    <div class="row">
+      <div>
+        <label>Upload template (PNG/JPG or PDF)</label>
+        <input id="tplFile" type="file" accept="image/*,.pdf" />
+      </div>
+      <div class="row3">
+        <div>
+          <label>Intended DPI</label>
+          <input id="tplDPI" type="number" value="300" min="72" max="1200" />
+        </div>
+        <div>
+          <label>Page width (mm)</label>
+          <input id="tplWmm" type="number" value="210" step="0.1" />
+        </div>
+        <div>
+          <label>Page height (mm)</label>
+          <input id="tplHmm" type="number" value="297" step="0.1" />
+        </div>
+      </div>
+    </div>
 
-<input id="version"
-       type="number"
-       min="1"
-       placeholder="e.g. 3"
-       onkeydown="if(event.key==='Enter')launch();">
+    <div class="tools" style="margin-top:8px">
+      <button id="btnDetectQR">Detect 4 Corner QR (LT/RT/LB/RB)</button>
+      <span class="pill">QR text must be exactly: LT, RT, LB, RB</span>
+    </div>
 
-<button onclick="launch()">Open Version</button>
+    <div class="tools" style="margin-top:8px">
+      <select id="shapeMode">
+        <option value="ellipse">Ellipse tool</option>
+        <option value="rect">Rectangle tool</option>
+      </select>
+      <input id="nextId" type="text" value="1.1" placeholder="Bubble ID e.g. 1.1" />
+      <button id="btnAddBubble" class="mutebtn">Add bubble</button>
+      <button id="btnUndo" class="mutebtn">Undo</button>
+      <button id="btnClear" class="mutebtn">Clear all</button>
+      <button id="btnDetectCircles" class="mutebtn">Auto-Detect Bubbles</button>
+      <button id="btnManageBubbles" class="mutebtn">Manage Bubbles</button>
+      <span class="pill">Draw on overlay: drag to size, release to preview</span>
+    </div>
 
+    <div class="legend" style="margin:8px 0 2px">
+      <span><i style="background:#7ef1c0"></i> QR bounds</span>
+      <span><i style="background:#5eead4"></i> Bubbles</span>
+    </div>
+
+    <div class="grid" style="margin-top:8px">
+      <div class="thumb">
+        <div class="tag">Template image</div>
+        <div class="canvaswrap">
+          <canvas id="tplCanvas"></canvas>
+          <canvas id="templateOverlay"></canvas>
+          <canvas id="tplOverlay"></canvas>
+        </div>
+      </div>
+      <div>
+        <label>Generated Template JSON</label>
+        <textarea id="tplOut" placeholder="Build JSON after placing bubbles…"></textarea>
+        <div class="tools" style="margin-top:8px">
+          <button id="btnBuildJSON">Build JSON</button>
+          <button id="btnDownloadJSON" class="mutebtn" disabled>Download JSON</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== OMR RUNNER ====== -->
+  <section id="runner" class="card pad" style="display:none">
+    <div class="row">
+      <div>
+        <label>Upload marked sheets (images or PDFs, multi-select allowed)</label>
+        <input id="runFiles" type="file" multiple accept="image/*,.pdf" />
+      </div>
+      <div>
+        <label>Template JSON</label>
+        <textarea id="runTpl" placeholder="Paste template JSON from Builder"></textarea>
+      </div>
+    </div>
+
+    <div class="tools" style="margin-top:8px">
+      <!-- New flow -->
+      <button id="btnLoadPages">Load Pages</button>
+      <button id="btnRunOMR" disabled>Run OMR for All Pages</button>
+      <button id="btnDownloadCSV" class="mutebtn" disabled>Download CSV</button>
+
+      <!-- Original flow (kept) -->
+      <button id="btnRun" disabled>Run OMR</button>
+      <button id="btnCSV" class="mutebtn" disabled>Download combined CSV</button>
+
+      <span class="pill">Filled if fill-ratio ≥ <span id="fillCutLabel">0.55</span></span>
+    </div>
+
+    <div id="canvasContainer" style="display:grid;gap:10px;margin-top:10px;"></div>
+    <div id="runResults" class="grid" style="margin-top:10px"></div>
+  </section>
+</main>
+
+<!-- Bubble Manager Modal -->
+<div id="bubbleManager">
+  <h3>Manage Bubbles</h3>
+  <table id="bubbleTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead><tr><th>Label</th><th>X</th><th>Y</th><th>R</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div style="margin-top:10px;">
+    <label>New Label:</label>
+    <input id="newBubbleLabel" type="text" placeholder="Enter new label" style="width:100%;">
+  </div>
+  <div style="margin-top:10px;display:flex;gap:8px;">
+    <button id="btnUpdateBubble" style="flex:1;">Update Label</button>
+    <button id="btnDeleteBubble" style="flex:1;background:#e55;">Delete</button>
+  </div>
+  <div style="text-align:right;margin-top:10px;">
+    <button id="btnCloseManager">Close</button>
+  </div>
 </div>
 
+<!-- OpenCV.js -->
+<script src="opencv.js" onload="cvReady()" onerror="alert('OpenCV.js failed to load.')"></script>
+
+<!-- PDF.js (non-module build, robust on mobile/desktop) -->
+<script src="pdf.min.js"></script>
 <script>
-
-function launch(){
-
-    let v=document.getElementById("version").value.trim();
-
-    if(v===""){
-        alert("Enter a version number.");
-        return;
-    }
-
-    window.location.href=v+"/";
-
-}
-
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "pdf.worker.min.js";
 </script>
 
+<script>
+/* ========= Helpers ========= */
+const $ = s => document.querySelector(s);
+function mm2px(mm, dpi){ return Math.round(mm * dpi / 25.4); }
+function px2mm(px, dpi){ return +(px * 25.4 / dpi).toFixed(3); }
+function ensureOdd(n){ return (n % 2) ? n : n + 1; }
+
+/* ========= Tabs ========= */
+const tabBtns = document.querySelectorAll('.tabbtn');
+tabBtns.forEach(b => b.addEventListener('click', () => {
+  tabBtns.forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  const tab = b.dataset.tab;
+  $('#builder').style.display = tab === 'builder' ? '' : 'none';
+  $('#runner').style.display  = tab === 'runner'  ? '' : 'none';
+}));
+
+/* ========= OpenCV ready ========= */
+let cvIsReady = false;
+function cvReady(){ cvIsReady = true; }
+
+/* ========= Template Builder State ========= */
+const tplFile = $('#tplFile');
+const tplCanvas = $('#tplCanvas');
+const tplOverlay = $('#tplOverlay');          // bubbles + labels overlay (interactive)
+const templateOverlay = $('#templateOverlay'); // faint warped preview overlay (non-interactive)
+const tplOut = $('#tplOut');
+const tplDPI = $('#tplDPI');
+const tplWmm = $('#tplWmm');
+const tplHmm = $('#tplHmm');
+const btnDetectQR = $('#btnDetectQR');
+const shapeMode = $('#shapeMode');
+const nextId = $('#nextId');
+const btnAddBubble = $('#btnAddBubble');
+const btnUndo = $('#btnUndo');
+const btnClear = $('#btnClear');
+const btnBuildJSON = $('#btnBuildJSON');
+const btnDownloadJSON = $('#btnDownloadJSON');
+const btnDetectCircles = $('#btnDetectCircles');
+const btnManageBubbles = $('#btnManageBubbles');
+
+let tplImg = null;               // template image canvas
+let drawState = null;
+let bubbles = [];                // [{id, x, y, r}] in PX
+let qrCorners = null;            // {tl:{x,y,size}, tr:{...}, lb:{...}, rb:{...}}
+
+tplFile.addEventListener('change', async () => {
+  const f = tplFile.files && tplFile.files[0];
+  if (!f) return;
+  tplOut.value = ''; bubbles = []; qrCorners = null;
+  tplImg = await fileOrPdfToFirstCanvas(f);
+  // resize canvases
+  [tplCanvas, templateOverlay, tplOverlay].forEach(c => { c.width = tplImg.width; c.height = tplImg.height; });
+  tplCanvas.getContext('2d').drawImage(tplImg,0,0);
+  templateOverlay.getContext('2d').clearRect(0,0,templateOverlay.width,templateOverlay.height);
+  tplOverlay.getContext('2d').clearRect(0,0,tplOverlay.width,tplOverlay.height);
+});
+
+btnDetectQR.addEventListener('click', () => {
+  if (!cvIsReady) return alert('OpenCV not ready yet.');
+  if (!tplImg) return alert('Upload a template first.');
+  try{
+    qrCorners = detectFourQRByQuadrants(tplImg, /*expectText=*/true);
+
+    // (Optional) faint warped template preview under bubbles (transparent)
+    drawTemplateOverlay(tplImg, {
+      LT: qrCorners.tl, RT: qrCorners.tr, LB: qrCorners.lb, RB: qrCorners.rb
+    });
+
+    // Auto-detect bubbles immediately (as requested)
+    detectCirclesInQRRegion(/*silent=*/true);
+
+    drawOverlayBuilder();
+  }catch(e){ alert('QR detection failed: '+ e.message); }
+});
+
+function drawOverlayBuilder(){
+  const ctx = tplOverlay.getContext('2d');
+  ctx.clearRect(0,0,tplOverlay.width,tplOverlay.height);
+  // QR boxes
+  if (qrCorners){
+    ctx.strokeStyle = '#7ef1c0'; ctx.lineWidth = 3; ctx.fillStyle = '#7ef1c0';
+    for (const k of ['tl','tr','lb','rb']){
+      const q = qrCorners[k]; if (!q) continue;
+      ctx.strokeRect(q.x - q.size/2, q.y - q.size/2, q.size, q.size);
+      ctx.font = '16px monospace'; ctx.fillText(k.toUpperCase(), q.x + 6, q.y - 6);
+    }
+  }
+  // bubbles + labels
+  ctx.strokeStyle = '#5eead4'; ctx.lineWidth = 2; ctx.fillStyle = '#5eead4';
+  bubbles.forEach(b => {
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.stroke();
+    ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.fillText(b.id, b.x + b.r + 4, b.y - 4);
+  });
+}
+
+/* Drawing for adding bubbles manually */
+tplOverlay.addEventListener('mousedown', e => {
+  if (!tplImg) return;
+  const rect = tplOverlay.getBoundingClientRect();
+  const x0 = (e.clientX - rect.left) * (tplOverlay.width / rect.width);
+  const y0 = (e.clientY - rect.top)  * (tplOverlay.height / rect.height);
+  drawState = { x0, y0, x1:x0, y1:y0 };
+});
+tplOverlay.addEventListener('mousemove', e => {
+  if (!drawState) return;
+  const rect = tplOverlay.getBoundingClientRect();
+  drawState.x1 = (e.clientX - rect.left) * (tplOverlay.width / rect.width);
+  drawState.y1 = (e.clientY - rect.top)  * (tplOverlay.height / rect.height);
+  drawOverlayBuilder();
+  const ctx = tplOverlay.getContext('2d');
+  ctx.save(); ctx.strokeStyle = '#9bd6ff'; ctx.setLineDash([6,4]);
+  if (shapeMode.value === 'rect'){
+    const x = Math.min(drawState.x0, drawState.x1);
+    const y = Math.min(drawState.y0, drawState.y1);
+    const w = Math.abs(drawState.x1 - drawState.x0);
+    const h = Math.abs(drawState.y1 - drawState.y0);
+    ctx.strokeRect(x,y,w,h);
+  } else {
+    const rx = (drawState.x1 - drawState.x0)/2;
+    const ry = (drawState.y1 - drawState.y0)/2;
+    const cx = drawState.x0 + rx; const cy = drawState.y0 + ry;
+    const r = Math.max(2, Math.min(Math.abs(rx), Math.abs(ry)));
+    ctx.beginPath(); ctx.ellipse(cx, cy, Math.abs(rx), Math.abs(ry), 0, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.setLineDash([]); ctx.stroke();
+  }
+  ctx.restore();
+});
+tplOverlay.addEventListener('mouseup', () => {
+  if (!drawState) return;
+  const {x0,y0,x1,y1} = drawState; drawState = null;
+  if (Math.hypot(x1-x0,y1-y0) < 3) return;
+  let cx, cy, r;
+  if (shapeMode.value === 'rect'){
+    const x = Math.min(x0,x1), y = Math.min(y0,y1);
+    const w = Math.abs(x1-x0), h = Math.abs(y1-y0);
+    cx = x + w/2; cy = y + h/2; r = Math.max(2, Math.min(w,h)/2);
+  } else {
+    const rx = (x1-x0)/2, ry = (y1-y0)/2; cx = x0 + rx; cy = y0 + ry; r = Math.max(2, Math.min(Math.abs(rx), Math.abs(ry)));
+  }
+  drawOverlayBuilder();
+  const ctx = tplOverlay.getContext('2d');
+  ctx.save(); ctx.strokeStyle = '#ffd166'; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke(); ctx.restore();
+  tplOverlay._preview = {cx, cy, r};
+});
+btnAddBubble.addEventListener('click', () => {
+  if (!tplOverlay._preview) return alert('Draw a bubble on the overlay first.');
+  const id = (nextId.value || '').trim();
+  if (!id) return alert('Enter an ID like 1.1, 1.2, A, etc.');
+  const {cx,cy,r} = tplOverlay._preview;
+  bubbles.push({id, x:cx, y:cy, r});
+  const m = id.match(/^(\d+)\.(\d+)$/);
+  if (m){ nextId.value = `${m[1]}.${Number(m[2])+1}`; }
+  tplOverlay._preview = null;
+  drawOverlayBuilder();
+});
+btnUndo.addEventListener('click', () => { bubbles.pop(); drawOverlayBuilder(); });
+btnClear.addEventListener('click', () => { bubbles = []; drawOverlayBuilder(); });
+
+/* Build Template JSON */
+btnBuildJSON.addEventListener('click', () => {
+  if (!tplImg) return alert('Upload a template first.');
+  if (!qrCorners) return alert('Detect the four QR corners first.');
+  if (!bubbles.length) return alert('Add at least one bubble.');
+  const dpi = Number(tplDPI.value)||300;
+  const Wmm = Number(tplWmm.value)||210;
+  const Hmm = Number(tplHmm.value)||297;
+  const out = {
+    dpi,
+    page: { width_mm: Wmm, height_mm: Hmm },
+    align_marks: {
+      tl: { x_mm: px2mm(qrCorners.tl.x, dpi), y_mm: px2mm(qrCorners.tl.y, dpi), size_mm: px2mm(qrCorners.tl.size, dpi) },
+      tr: { x_mm: px2mm(qrCorners.tr.x, dpi), y_mm: px2mm(qrCorners.tr.y, dpi), size_mm: px2mm(qrCorners.tr.size, dpi) },
+      bl: { x_mm: px2mm(qrCorners.lb.x, dpi), y_mm: px2mm(qrCorners.lb.y, dpi), size_mm: px2mm(qrCorners.lb.size, dpi) },
+      br: { x_mm: px2mm(qrCorners.rb.x, dpi), y_mm: px2mm(qrCorners.rb.y, dpi), size_mm: px2mm(qrCorners.rb.size, dpi) }
+    },
+    threshold: { method: 'adaptive_mean', blockSize: 31, C: 10 },
+    fill_ratio: 0.55,
+    bubbles: bubbles.map(b => ({ id: b.id, x_mm: px2mm(b.x, dpi), y_mm: px2mm(b.y, dpi), r_mm: px2mm(b.r, dpi) }))
+  };
+  tplOut.value = JSON.stringify(out, null, 2);
+  $('#fillCutLabel').textContent = out.fill_ratio.toString();
+  btnDownloadJSON.disabled = true === false ? false : false; // keep enabled toggle below
+  btnDownloadJSON.disabled = false;
+});
+btnDownloadJSON.addEventListener('click', () => {
+  const blob = new Blob([tplOut.value||''], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='omr_template.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* Auto-detect bubbles within QR region (builder) */
+btnDetectCircles.addEventListener('click', () => detectCirclesInQRRegion(false));
+function detectCirclesInQRRegion(silent=false) {
+  if (!cvIsReady) return alert("OpenCV not ready.");
+  if (!tplImg) return alert("Upload a template first.");
+  if (!qrCorners) return alert("Detect QR codes first.");
+
+  const src = cv.imread(tplImg);
+  const gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+  const srcPts = cv.matFromArray(4,1,cv.CV_32FC2,[
+    qrCorners.tl.x, qrCorners.tl.y,
+    qrCorners.tr.x, qrCorners.tr.y,
+    qrCorners.lb.x, qrCorners.lb.y,
+    qrCorners.rb.x, qrCorners.rb.y
+  ]);
+  const w = Math.max(
+    Math.hypot(qrCorners.tr.x-qrCorners.tl.x, qrCorners.tr.y-qrCorners.tl.y),
+    Math.hypot(qrCorners.rb.x-qrCorners.lb.x, qrCorners.rb.y-qrCorners.lb.y)
+  );
+  const h = Math.max(
+    Math.hypot(qrCorners.lb.x-qrCorners.tl.x, qrCorners.lb.y-qrCorners.tl.y),
+    Math.hypot(qrCorners.rb.x-qrCorners.tr.x, qrCorners.rb.y-qrCorners.tr.y)
+  );
+  const dstPts = cv.matFromArray(4,1,cv.CV_32FC2,[0,0, w,0, 0,h, w,h]);
+
+  const M = cv.getPerspectiveTransform(srcPts, dstPts);
+  const warped = new cv.Mat();
+  cv.warpPerspective(gray, warped, M, new cv.Size(w, h));
+
+  const circles = new cv.Mat();
+  // parameters may need tuning for your print/scan
+  cv.HoughCircles(warped, circles, cv.HOUGH_GRADIENT, 1, 22, 120, 30, 4, 60);
+
+  // inverse map
+  const Minv = cv.getPerspectiveTransform(dstPts, srcPts);
+  let added = 0;
+  for (let i=0; i<circles.cols; i++){
+    const x = circles.data32F[i*3], y = circles.data32F[i*3+1], r = circles.data32F[i*3+2];
+    const srcPoint = cv.matFromArray(1,1,cv.CV_32FC2,[x,y]);
+    const dstPoint = new cv.Mat();
+    cv.perspectiveTransform(srcPoint, dstPoint, Minv);
+    const cx = dstPoint.data32F[0], cy = dstPoint.data32F[1];
+
+    // avoid duplicates nearby (simple distance check)
+    const dup = bubbles.some(b => Math.hypot(b.x-cx,b.y-cy) < Math.max(b.r, r)*0.6);
+    if (!dup){
+      const id = (nextId.value||'auto')+'.'+(bubbles.length+1);
+      bubbles.push({ id, x: cx, y: cy, r: r });
+      added++;
+    }
+    srcPoint.delete(); dstPoint.delete();
+  }
+  src.delete(); gray.delete(); warped.delete(); circles.delete();
+  srcPts.delete(); dstPts.delete(); M.delete(); Minv.delete();
+
+  drawOverlayBuilder();
+  if (!silent) alert('Auto-detected bubbles added: ' + added);
+}
+
+/* Bubble Manager */
+let selectedBubbleIndex = null;
+btnManageBubbles.addEventListener('click', openBubbleManager);
+$('#btnCloseManager').addEventListener('click', () => {
+  $('#bubbleManager').style.display = 'none';
+  selectedBubbleIndex = null;
+});
+$('#btnUpdateBubble').addEventListener('click', () => {
+  if (selectedBubbleIndex === null) return alert('Select a bubble first.');
+  const newLabel = $('#newBubbleLabel').value.trim();
+  if (!newLabel) return alert('Enter a new label.');
+  bubbles[selectedBubbleIndex].id = newLabel;
+  openBubbleManager(); drawOverlayBuilder();
+});
+$('#btnDeleteBubble').addEventListener('click', () => {
+  if (selectedBubbleIndex === null) return alert('Select a bubble first.');
+  bubbles.splice(selectedBubbleIndex, 1);
+  selectedBubbleIndex = null;
+  openBubbleManager(); drawOverlayBuilder();
+});
+function openBubbleManager(){
+  const tbody = $('#bubbleTable tbody');
+  tbody.innerHTML = '';
+  bubbles.forEach((b,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${b.id}</td><td>${Math.round(b.x)}</td><td>${Math.round(b.y)}</td><td>${Math.round(b.r)}</td>`;
+    tr.addEventListener('click', ()=>{
+      selectedBubbleIndex = i;
+      tbody.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));
+      tr.classList.add('selected');
+      $('#newBubbleLabel').value = b.id;
+    });
+    tbody.appendChild(tr);
+  });
+  $('#bubbleManager').style.display = 'block';
+}
+
+/* ========= Runner State ========= */
+const runFiles = $('#runFiles');
+const runTpl = $('#runTpl');
+const btnRun = $('#btnRun');
+const btnCSV = $('#btnCSV');
+const runResults = $('#runResults');
+
+let runPages = [];   // [{baseName, pageNum, canvas}]
+let runOutRows = []; // original flow CSV rows
+let runMatrix = [];  // new flow matrix
+let lastTplForRun = null;
+
+runFiles.addEventListener('change', async () => {
+  runPages = [];
+  const files = Array.from(runFiles.files || []);
+  for (const f of files){
+    if (f.name.toLowerCase().endsWith('.pdf')){
+      const canvases = await pdfToCanvases(f);
+      canvases.forEach((cv,i)=> runPages.push({baseName: f.name, pageNum: i+1, canvas: cv}));
+    }else{
+      const cvn = await fileToCanvas(f);
+      runPages.push({baseName: f.name, pageNum: 1, canvas: cvn});
+    }
+  }
+  btnRun.disabled = !(runPages.length && runTpl.value.trim().length);
+  // also prep the "Load Pages" UX
+  $('#canvasContainer').innerHTML = '';
+  loadedCanvases = [];
+});
+
+runTpl.addEventListener('input', () => {
+  btnRun.disabled = !(runPages.length && runTpl.value.trim().length);
+  try{
+    const tpl = JSON.parse(runTpl.value);
+    $('#fillCutLabel').textContent = (tpl.fill_ratio ?? 0.55).toString();
+  }catch{}
+});
+
+/* ===== Original flow (kept) ===== */
+btnRun.addEventListener('click', async () => {
+  if (!cvIsReady) return alert('OpenCV not ready yet.');
+  let tpl;
+  try{ tpl = JSON.parse(runTpl.value); }
+  catch(e){ return alert('Template JSON invalid: '+e.message); }
+
+  runOutRows = [['file','page_index','bubble_id','value','score']];
+  runResults.innerHTML = '';
+
+  for (let i=0;i<runPages.length;i++){
+    const {canvas,baseName,pageNum} = runPages[i];
+    try{
+      const qr = detectFourQRByQuadrants(canvas, true);
+      const {results, marks} = await processPageQRAnchoredWithMarks(canvas, tpl, qr);
+
+      const card = document.createElement('div'); card.className = 'card pad';
+      const h = document.createElement('div'); h.innerHTML = `<strong>${baseName} — p${pageNum}</strong>`;
+      const cvThumb = document.createElement('canvas');
+      const scale = Math.min(900, canvas.width);
+      cvThumb.width = scale; cvThumb.height = Math.round(scale * canvas.height / canvas.width);
+      const ctx = cvThumb.getContext('2d'); ctx.drawImage(canvas,0,0,cvThumb.width,cvThumb.height);
+
+      // draw colored overlays (green/red) + labels
+      drawOmrMarksOnThumb(ctx, cvThumb, canvas, marks);
+
+      const tbl = document.createElement('table');
+      tbl.innerHTML = '<thead><tr><th>ID</th><th>Filled?</th><th>Score</th></tr></thead><tbody></tbody>';
+      const tb = tbl.querySelector('tbody');
+      results.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.id}</td><td class="${r.value?'ok':'no'}">${r.value?'YES':'NO'}</td><td>${r.score.toFixed(3)}</td>`;
+        tb.appendChild(tr);
+        runOutRows.push([baseName, pageNum, r.id, r.value?1:0, r.score.toFixed(3)]);
+      });
+      card.appendChild(h); card.appendChild(cvThumb); card.appendChild(tbl);
+      runResults.appendChild(card);
+    }catch(e){
+      const card = document.createElement('div'); card.className = 'card pad';
+      card.innerHTML = `<strong>${baseName} — p${pageNum}</strong><div class="small">Error: ${e.message}</div>`;
+      runResults.appendChild(card);
+    }
+  }
+  btnCSV.disabled = false;
+});
+
+btnCSV.addEventListener('click', () => {
+  const csv = runOutRows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='omr_results_detailed.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ===== New flow: Load Pages → Run OMR for All Pages ===== */
+let loadedCanvases = []; // {name, pageNum, canvas}
+let omrResults = [];
+
+$('#btnLoadPages').addEventListener('click', async () => {
+  const files = Array.from(runFiles.files || []);
+  if (!files.length) return alert("Please select files first.");
+  loadedCanvases = [];
+  $('#canvasContainer').innerHTML = "";
+
+  for (const file of files) {
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      const pages = await pdfToCanvases(file);
+      pages.forEach((cv, i) => {
+        loadedCanvases.push({ name: file.name, pageNum: i+1, canvas: cv });
+        appendCanvasPreview(cv, `${file.name} — Page ${i+1}`);
+      });
+    } else {
+      const img = await fileToCanvas(file);
+      loadedCanvases.push({ name: file.name, pageNum: 1, canvas: img });
+      appendCanvasPreview(img, file.name);
+    }
+  }
+  if (loadedCanvases.length) {
+    $('#btnRunOMR').disabled = false;
+    alert(`${loadedCanvases.length} page(s) loaded. Ready to run OMR.`);
+  }
+});
+
+function appendCanvasPreview(cv, label) {
+  const wrap = document.createElement("div");
+  wrap.className = 'card pad';
+  const title = document.createElement('div');
+  title.style.color = '#9aa4b2'; title.style.fontSize = '12px'; title.style.marginBottom = '6px';
+  title.textContent = label;
+  // create a thumb copy so later we can draw overlays safely
+  const thumb = document.createElement('canvas');
+  const scale = Math.min(900, cv.width);
+  thumb.width = scale; thumb.height = Math.round(scale * cv.height / cv.width);
+  thumb.getContext('2d').drawImage(cv, 0,0, thumb.width, thumb.height);
+  wrap.appendChild(title); wrap.appendChild(thumb);
+  $('#canvasContainer').appendChild(wrap);
+}
+
+$('#btnRunOMR').addEventListener('click', async () => {
+  omrResults = [];
+  let tpl;
+  try{ tpl = JSON.parse($('#runTpl').value); }
+  catch(e){ return alert('Template JSON invalid: '+e.message); }
+  if (!cvIsReady) return alert('OpenCV not ready yet.');
+  if (!loadedCanvases.length) return alert('No pages loaded.');
+
+  // For each preview card, draw overlays
+  const thumbCanvases = Array.from($('#canvasContainer').querySelectorAll('canvas'));
+
+  for (let idx=0; idx<loadedCanvases.length; idx++) {
+    const p = loadedCanvases[idx];
+    try {
+      const qr = detectFourQRByQuadrants(p.canvas, true);
+      const {results, marks} = await processPageQRAnchoredWithMarks(p.canvas, tpl, qr);
+      omrResults.push({ pdfName: p.name, pageNum: p.pageNum, items: results });
+
+      // draw marks on the corresponding thumb
+      const thumb = thumbCanvases[idx];
+      const tctx = thumb.getContext('2d');
+      drawOmrMarksOnThumb(tctx, thumb, p.canvas, marks);
+    } catch (err) {
+      console.error(`Error processing ${p.name} Page ${p.pageNum}:`, err);
+    }
+  }
+  $('#btnDownloadCSV').disabled = false;
+  alert("OMR completed for all pages.");
+});
+
+$('#btnDownloadCSV').addEventListener('click', () => {
+  if (!omrResults.length) return;
+  // Build unified header in template order if available, else union of ids
+  let allIds = [];
+  try{
+    const tpl = JSON.parse($('#runTpl').value);
+    allIds = tpl.bubbles.map(b=>b.id);
+  }catch{
+    allIds = Array.from(new Set(omrResults.flatMap(r => r.items.map(it => it.id))));
+  }
+
+  const rows = [["PDF Name","Page Number", ...allIds]];
+  omrResults.forEach(r => {
+    const map = Object.fromEntries(r.items.map(it=>[it.id, it.value?1:0]));
+    rows.push([r.pdfName, r.pageNum, ...allIds.map(id => (id in map? map[id]: ""))]);
+  });
+
+  const csv = rows.map(row => row.join(",")).join("\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "omr_results.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ========= Core Functions ========= */
+
+async function fileOrPdfToFirstCanvas(file){
+  if (file.name.toLowerCase().endsWith('.pdf')){
+    const cvs = await pdfToCanvases(file);
+    return cvs[0];
+  }else{
+    return await fileToCanvas(file);
+  }
+}
+
+async function fileToCanvas(file){
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await img.decode();
+  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img,0,0);
+  URL.revokeObjectURL(img.src);
+  return c;
+}
+
+async function pdfToCanvases(file) {
+  const arrayBuf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  const outs = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const vp = page.getViewport({ scale: 2 });
+    const c = document.createElement("canvas");
+    c.width = vp.width;
+    c.height = vp.height;
+    const ctx = c.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    outs.push(c);
+  }
+  return outs;
+}
+
+/* Detect four QRs by scanning quadrants; expect texts "LT","RT","LB","RB" */
+function detectFourQRByQuadrants(canvas, expectText){
+  const src = cv.imread(canvas);
+  const qr = new cv.QRCodeDetector();
+  const map = {}; // tl,tr,lb,rb
+  const quads = [
+    {k:'tl', x0:0, y0:0, x1:src.cols/2, y1:src.rows/2, expect:'LT'},
+    {k:'tr', x0:src.cols/2, y0:0, x1:src.cols, y1:src.rows/2, expect:'RT'},
+    {k:'lb', x0:0, y0:src.rows/2, x1:src.cols/2, y1:src.rows, expect:'LB'},
+    {k:'rb', x0:src.cols/2, y0:src.rows/2, x1:src.cols, y1:src.rows, expect:'RB'},
+  ];
+  for (const q of quads){
+    const roi = src.roi(new cv.Rect(q.x0, q.y0, q.x1-q.x0, q.y1-q.y0));
+    const pts = new cv.Mat(); const straight = new cv.Mat();
+    const decoded = qr.detectAndDecode(roi, pts, straight); // string or empty
+    if (!pts.empty()){
+      const a = pts.data32F;
+      const xs = [a[0],a[2],a[4],a[6]].map(v=>v+q.x0);
+      const ys = [a[1],a[3],a[5],a[7]].map(v=>v+q.y0);
+      const cx = (xs[0]+xs[1]+xs[2]+xs[3])/4;
+      const cy = (ys[0]+ys[1]+ys[2]+ys[3])/4;
+      const d01 = Math.hypot(xs[1]-xs[0], ys[1]-ys[0]);
+      const d12 = Math.hypot(xs[2]-xs[1], ys[2]-ys[1]);
+      const d23 = Math.hypot(xs[3]-xs[2], ys[3]-ys[2]);
+      const d30 = Math.hypot(xs[0]-xs[3], ys[0]-ys[3]);
+      const size = (d01+d12+d23+d30)/4;
+      const txt = (decoded || '').trim();
+      if (expectText && txt !== q.expect){
+        roi.delete(); pts.delete(); straight.delete();
+        src.delete(); qr.delete();
+        throw new Error(`Expected QR "${q.expect}" in ${q.k.toUpperCase()} quadrant, got "${txt||'?' }"`);
+      }
+      map[q.k] = {x:cx, y:cy, size, text:txt};
+    }
+    roi.delete(); pts.delete(); straight.delete();
+  }
+  src.delete(); qr.delete();
+  if (!(map.tl && map.tr && map.rb && map.lb)) throw new Error('Not all four QRs were detected.');
+  return map;
+}
+
+/* Faint warped template underlay (transparent) */
+function drawTemplateOverlay(templateImage, qr){
+  const overlayCanvas = templateOverlay;
+  const ctx = overlayCanvas.getContext('2d');
+  ctx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+
+  const srcPts = cv.matFromArray(4,1,cv.CV_32FC2,[
+    0,0,
+    templateImage.width,0,
+    0,templateImage.height,
+    templateImage.width,templateImage.height
+  ]);
+  const dstPts = cv.matFromArray(4,1,cv.CV_32FC2,[
+    qr.LT.x, qr.LT.y,
+    qr.RT.x, qr.RT.y,
+    qr.LB.x, qr.LB.y,
+    qr.RB.x, qr.RB.y
+  ]);
+  const M = cv.getPerspectiveTransform(srcPts, dstPts);
+  const srcMat = cv.imread(templateImage);
+  const dstMat = new cv.Mat();
+  cv.warpPerspective(srcMat, dstMat, M, new cv.Size(overlayCanvas.width, overlayCanvas.height));
+  cv.imshow(overlayCanvas, dstMat);
+  srcMat.delete(); dstMat.delete(); srcPts.delete(); dstPts.delete(); M.delete();
+}
+
+/* Evaluate bubbles and also return marks mapped to original-image coords for drawing */
+async function processPageQRAnchoredWithMarks(canvas, tpl, qrDetected){
+  const dpi = tpl.dpi;
+  const pageW = mm2px(tpl.page.width_mm, dpi);
+  const pageH = mm2px(tpl.page.height_mm, dpi);
+
+  // Source points = detected QR centers
+  const srcPts = cv.matFromArray(4,1,cv.CV_32FC2,[
+    qrDetected.tl.x, qrDetected.tl.y,
+    qrDetected.tr.x, qrDetected.tr.y,
+    qrDetected.lb.x, qrDetected.lb.y,
+    qrDetected.rb.x, qrDetected.rb.y
+  ]);
+  // Destination points = template QR centers (mm->px)
+  const tl = tpl.align_marks.tl, tr = tpl.align_marks.tr, bl = tpl.align_marks.bl, br = tpl.align_marks.br;
+  const dstPts = cv.matFromArray(4,1,cv.CV_32FC2,[
+    mm2px(tl.x_mm,dpi), mm2px(tl.y_mm,dpi),
+    mm2px(tr.x_mm,dpi), mm2px(tr.y_mm,dpi),
+    mm2px(bl.x_mm,dpi), mm2px(bl.y_mm,dpi),
+    mm2px(br.x_mm,dpi), mm2px(br.y_mm,dpi)
+  ]);
+
+  const src = cv.imread(canvas);
+  const gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+  const H = cv.findHomography(srcPts, dstPts);
+  const warped = new cv.Mat();
+  cv.warpPerspective(gray, warped, H, new cv.Size(pageW, pageH), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+
+  // Threshold + bubble evaluation
+  const th = tpl.threshold || {method:'adaptive_mean', blockSize:31, C:10};
+  const method = (th.method||'adaptive_mean').toLowerCase().includes('gauss') ? cv.ADAPTIVE_THRESH_GAUSSIAN_C : cv.ADAPTIVE_THRESH_MEAN_C;
+  const wbin = new cv.Mat();
+  cv.adaptiveThreshold(warped, wbin, 255, method, cv.THRESH_BINARY_INV, ensureOdd(th.blockSize||31), th.C|0);
+  const ratioCut = typeof tpl.fill_ratio==='number' ? tpl.fill_ratio : 0.55;
+
+  const results = [];
+  const marks = []; // {id,x,y,r,value}
+  // Precompute Hinv for mapping template px -> original px
+  const Hinv = new cv.Mat();
+  cv.invert(H, Hinv);
+
+  for (const b of tpl.bubbles){
+    const cx_t = mm2px(b.x_mm, dpi), cy_t = mm2px(b.y_mm, dpi), rr_t = mm2px(b.r_mm, dpi);
+    // score in warped (template) space
+    const rx = Math.max(0, cx_t-rr_t-2), ry = Math.max(0, cy_t-rr_t-2);
+    const rw = Math.min(wbin.cols-rx, 2*rr_t+4), rh = Math.min(wbin.rows-ry, 2*rr_t+4);
+    const roi = wbin.roi(new cv.Rect(rx,ry,rw,rh));
+    const mask = new cv.Mat.zeros(roi.rows, roi.cols, cv.CV_8UC1);
+    cv.circle(mask, new cv.Point(Math.round(cx_t-rx), Math.round(cy_t-ry)), Math.max(1,Math.round(rr_t)), new cv.Scalar(255), -1);
+    const tmp = new cv.Mat(); cv.bitwise_and(roi, mask, tmp);
+    const filled = cv.countNonZero(tmp);
+    const area = Math.PI * rr_t * rr_t;
+    const score = Math.min(1, filled / area);
+    const value = (score >= ratioCut);
+    results.push({id:b.id, value, score});
+
+    // map template center and radius back to original image coords
+    const p0 = cv.matFromArray(1,1,cv.CV_32FC2,[cx_t, cy_t]);
+    const p1 = cv.matFromArray(1,1,cv.CV_32FC2,[cx_t+rr_t, cy_t]);
+    const q0 = new cv.Mat(); const q1 = new cv.Mat();
+    cv.perspectiveTransform(p0, q0, Hinv);
+    cv.perspectiveTransform(p1, q1, Hinv);
+    const x = q0.data32F[0], y = q0.data32F[1];
+    const r_s = Math.hypot(q1.data32F[0]-x, q1.data32F[1]-y);
+    marks.push({id:b.id, x, y, r: r_s, value});
+
+    roi.delete(); mask.delete(); tmp.delete(); p0.delete(); p1.delete(); q0.delete(); q1.delete();
+  }
+
+  // cleanup
+  src.delete(); gray.delete(); H.delete(); Hinv.delete(); warped.delete(); wbin.delete(); srcPts.delete(); dstPts.delete();
+
+  return {results, marks};
+}
+
+/* Draw green/red bubbles + labels onto a thumbnail that shows the original page */
+function drawOmrMarksOnThumb(ctxThumb, thumbCanvas, originalCanvas, marks){
+  const sx = thumbCanvas.width / originalCanvas.width;
+  const sy = thumbCanvas.height / originalCanvas.height;
+
+  ctxThumb.save();
+  ctxThumb.lineWidth = 2;
+
+  marks.forEach(m => {
+    ctxThumb.beginPath();
+    ctxThumb.strokeStyle = m.value ? '#3DED97' : '#FF6B6B';
+    ctxThumb.arc(m.x * sx, m.y * sy, Math.max(1, m.r * (sx+sy)/2), 0, Math.PI*2);
+    ctxThumb.stroke();
+
+    ctxThumb.font = '12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctxThumb.fillStyle = '#e6edf3';
+    ctxThumb.fillText(m.id, m.x * sx + Math.max(2, m.r*(sx+sy)/2) + 3, m.y * sy - 4);
+  });
+  ctxThumb.restore();
+}
+
+/* ========= END Core ========= */
+</script>
 </body>
 </html>
