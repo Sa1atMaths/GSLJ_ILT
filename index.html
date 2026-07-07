@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Version Launcher</title>
+
+<style>
+body{
+    font-family:Arial,sans-serif;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    margin:0;
+    background:#0d1117;
+}
+.card{
+    background:white;
+    padding:30px;
+    border-radius:15px;
+    width:320px;
+    text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);
+}
+input{
+    width:100%;
+    padding:12px;
+    font-size:18px;
+    text-align:center;
+    margin:20px 0;
+    border:2px solid #ccc;
+    border-radius:8px;
+    box-sizing:border-box;
+}
+button{
+    width:100%;
+    padding:12px;
+    font-size:18px;
+    background:#0969da;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+button:hover{
+    background:#0550ae;
+}
+</style>
+
+</head>
+<body>
+
+<div class="card">
+<h2>Select Version</h2>
+
+<input id="version"
+       type="number"
+       min="1"
+       placeholder="e.g. 3"
+       onkeydown="if(event.key==='Enter')launch();">
+
+<button onclick="launch()">Open Version</button>
+
+</div>
+
+<script>
+
+function launch(){
+
+    let v=document.getElementById("version").value.trim();
+
+    if(v===""){
+        alert("Enter a version number.");
+        return;
+    }
+
+    window.location.href=v+"/";
+
+}
+
+</script>
+
+</body>
+</html>
