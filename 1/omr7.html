@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OMR Scan Creator</title>
+    <style>
+        .circle {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 1px solid black;
+            border-radius: 50%;
+            margin: 5px;
+            position: relative;
+        }
+        .circle span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .row {
+            margin-bottom: 10px;
+            display: flex;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .output {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            border: 2px solid black;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        .label {
+            display: inline-block;
+            width: 50px;
+        }
+        .column {
+            flex: 1;
+            min-width: 300px;
+        }
+        .question-title {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #scanResult {
+            margin-top: 20px;
+            border: 2px dashed #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 2px solid #4caf50;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>OMR Scan Creator</h1>
+    <form id="inputForm">
+        <label for="numberDigits">Number of Digits (n):</label>
+        <input type="number" id="numberDigits" min="1" required><br><br>
+
+        <label for="columns">Number of Columns (c):</label>
+        <input type="number" id="columns" min="1" required><br><br>
+
+        <div id="columnDetails"></div>
+
+        <label for="options">Number of Options (o):</label>
+        <input type="number" id="options" min="1" required><br><br>
+
+        <label for="sets">Number of Sets (k):</label>
+        <input type="number" id="sets" min="1" required><br><br>
+
+        <button type="button" id="createButton">Create</button>
+        <button type="button" id="saveButton">Save</button>
+        <button type="button" id="loadButton">Load</button>
+    </form>
+
+    <div id="output" class="output"></div>
+
+    <!-- Button to Load Scanned OMR -->
+    <button id="loadImageButton" style="margin-top: 20px;">Load Scanned OMR Image</button>
+
+    <div id="scanResult"></div>
+    <div id="results"></div>
+
+    <script>
+        const columnDetails = document.getElementById('columnDetails');
+        const createButton = document.getElementById('createButton');
+        const loadImageButton = document.getElementById('loadImageButton');
+        const outputDiv = document.getElementById('output');
+        const scanResultDiv = document.getElementById('scanResult');
+        const resultsDiv = document.getElementById('results');
+
+        let mockData = {}; // Object to store simulated OMR data
+
+        document.getElementById('columns').addEventListener('input', () => {
+            const columnCount = parseInt(document.getElementById('columns').value);
+            columnDetails.innerHTML = '';
+            for (let i = 1; i <= columnCount; i++) {
+                columnDetails.innerHTML += `
+                    <label for="column_${i}">Questions in Column ${i} (c_${i}):</label>
+                    <input type="number" id="column_${i}" min="1" required><br><br>
+                `;
+            }
+        });
+
+        createButton.addEventListener('click', () => {
+            const n = parseInt(document.getElementById('numberDigits').value);
+            const c = parseInt(document.getElementById('columns').value);
+            const o = parseInt(document.getElementById('options').value);
+            const k = parseInt(document.getElementById('sets').value);
+            const columnCounts = [];
+
+            for (let i = 1; i <= c; i++) {
+                columnCounts.push(parseInt(document.getElementById(`column_${i}`).value));
+            }
+
+            outputDiv.innerHTML = '';
+
+            // Mock Data Initialization
+            mockData = { rollNumber: [], set: null, questions: [] };
+
+            // First column with 0-9 labels
+            const firstColumn = document.createElement('div');
+            firstColumn.className = 'column';
+            const title = document.createElement('div');
+            title.className = 'question-title';
+            title.textContent = 'Digits (0-9)';
+            firstColumn.appendChild(title);
+
+            for (let i = 0; i < 10; i++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+
+                const label = document.createElement('span');
+                label.className = 'label';
+                label.textContent = i;
+                rowDiv.appendChild(label);
+
+                for (let j = 0; j < n; j++) {
+                    const circle = document.createElement('div');
+                    circle.className = 'circle';
+                    circle.dataset.value = i; // Add value for mock processing
+                    circle.onclick = () => {
+                        circle.classList.toggle('marked');
+                        if (circle.classList.contains('marked')) {
+                            mockData.rollNumber[j] = i;
+                        } else {
+                            mockData.rollNumber[j] = null;
+                        }
+                    };
+                    rowDiv.appendChild(circle);
+                }
+                firstColumn.appendChild(rowDiv);
+            }
+            outputDiv.appendChild(firstColumn);
+
+            // Second column for sets
+            const setColumn = document.createElement('div');
+            setColumn.className = 'column';
+            const setTitle = document.createElement('div');
+            setTitle.className = 'question-title';
+            setTitle.textContent = 'Sets';
+            setColumn.appendChild(setTitle);
+
+            for (let i = 1; i <= k; i++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+
+                const setLabel = document.createElement('span');
+                setLabel.className = 'label';
+                setLabel.textContent = i;
+                rowDiv.appendChild(setLabel);
+
+                const circle = document.createElement('div');
+                circle.className = 'circle';
+                circle.dataset.value = i; // Add value for mock processing
+                circle.onclick = () => {
+                    setColumn.querySelectorAll('.circle').forEach(c => c.classList.remove('marked'));
+                    circle.classList.add('marked');
+                    mockData.set = i;
+                };
+                rowDiv.appendChild(circle);
+
+                setColumn.appendChild(rowDiv);
+            }
+            outputDiv.appendChild(setColumn);
+
+            // Columns for questions
+            let questionNumber = 1;
+            columnCounts.forEach((count, idx) => {
+                const columnDiv = document.createElement('div');
+                columnDiv.className = 'column';
+
+                const title = document.createElement('div');
+                title.className = 'question-title';
+                title.textContent = `Questions in Column ${idx + 1}`;
+                columnDiv.appendChild(title);
+
+                for (let i = 0; i < count; i++) {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'row';
+
+                    const questionLabel = document.createElement('span');
+                    questionLabel.className = 'label';
+                    questionLabel.textContent = questionNumber++;
+                    rowDiv.appendChild(questionLabel);
+
+                    for (let j = 0; j < o; j++) {
+                        const circle = document.createElement('div');
+                        circle.className = 'circle';
+                        circle.dataset.value = String.fromCharCode(97 + j); // Add value (a, b, c...)
+                        circle.onclick = () => {
+                            rowDiv.querySelectorAll('.circle').forEach(c => c.classList.remove('marked'));
+                            circle.classList.add('marked');
+                            mockData.questions[questionLabel.textContent - 1] = circle.dataset.value;
+                        };
+                        const optionLabel = document.createElement('span');
+                        optionLabel.textContent = String.fromCharCode(97 + j);
+                        circle.appendChild(optionLabel);
+                        rowDiv.appendChild(circle);
+                    }
+                    columnDiv.appendChild(rowDiv);
+                }
+                outputDiv.appendChild(columnDiv);
+            });
+        });
+
+        loadImageButton.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+
+            input.onchange = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        scanResultDiv.innerHTML = `
+                            <h3>Scanned OMR Image:</h3>
+                            <img src="${reader.result}" alt="Scanned OMR" style="max-width: 100%; border: 1px solid black;">
+                        `;
+                        // Simulate processing
+                        setTimeout(() => {
+                            resultsDiv.innerHTML = `
+                                <h3>Detected Results:</h3>
+                                <p><strong>Roll Number:</strong> ${mockData.rollNumber.filter(n => n !== null).join('')}</p>
+                                <p><strong>Set:</strong> ${mockData.set || 'None'}</p>
+                                ${mockData.questions.map((option, index) =>
+                                    `<p><strong>Que${index + 1}:</strong> ${option || 'None'}</p>`
+                                ).join('')}
+                            `;
+                        }, 2000);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
+        });
+    </script>
+</body>
+</html>
